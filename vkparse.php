@@ -28,6 +28,7 @@ switch ($data -> type) {
 
         $post_images = [];
         $post_videos = [];
+        $post_files = [];
         
         foreach($data->object->attachments as $key => $value){
             
@@ -61,6 +62,11 @@ switch ($data -> type) {
                 $video_id = $value -> video -> id;
                 $post_videos[] = 'https://vk.com/video'.$owner_id._.$video_id;
             }
+            // set url for all attacched files
+            if ($value -> type == 'doc'){
+                                //name of file + newline + url
+                $post_files [] = $value -> doc -> title . PHP_EOL . $value -> doc -> url;
+            }
         }
         $first_enter = strpos($post_text, PHP_EOL);
 
@@ -68,10 +74,12 @@ switch ($data -> type) {
         $post_title = substr($post_text, 0, $first_enter);
 
         $post_text = substr($post_text, $first_enter);
+        //delete spaces
         $post_text = trim($post_text);
         
         $images_html = [];
         $videos_html = [];
+        $files_html = [];
 
         // create html code for all images
         foreach ($post_images as $key => $value) {
@@ -88,15 +96,32 @@ switch ($data -> type) {
         // create html code for all videos
         foreach ($post_videos as $key => $value){
 
-            $videos_html[] = '<div class="vk-videos">'.'<a href="'.$value.'">'.$post_title.'</a>'.'</div>';
+            $videos_html[] = '<div class="vk-videos">'.'<a href="'.$value.'">'.'Видео к записи'.'</a>'.'</div>';
+        }
+
+        foreach ($post_files as $key => $value) {
+
+            $first_file_enter = strpos($value, PHP_EOL);
+            // from start to first \n - file_name
+            $file_name = substr($value, 0, $first_file_enter); 
+            // from first \n - file url
+            $file_url = substr($value, $first_file_enter);
+            //delete spaces
+            $file_url = trim($file_url);
+            $files_html[] = '<div class="vk-files">'.'<a href="'.$file_url.'">'.$file_name.'</a>'.'</div>';
+
         }
 
         // convert array to string
         $images_html = implode($images_html);
         $videos_html = implode($videos_html);
+        $files_html = implode($files_html);
 
         // create html code of all page via concatenating all values
-        $post_text = $post_text . PHP_EOL . $images_html . $videos_html;
+        $post_text = $post_text . PHP_EOL . 
+        $images_html .
+        '<div>' ."Ознакомтесь с приложенными видео". $videos_html .'</div>'.
+        '<div>' ."Ознакомтесь с приложенными файлами". $files_html .'</div>';
 
         // set data of new post
         if ($post_title) {
