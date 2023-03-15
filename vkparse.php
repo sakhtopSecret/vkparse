@@ -10,6 +10,7 @@ require_once ABSPATH . '/wp-admin/includes/media.php';
 if(!isset($_REQUEST)) {
     return;
 }
+// decode json post from VK to array
 $data = json_decode(file_get_contents('php://input'));
 
 
@@ -20,14 +21,17 @@ switch ($data -> type) {
         exit;
         break;
 
+    // do when new post    
     case 'wall_post_new':
         
         $post_text = $data -> object -> text;
 
         $post_images = [];
+        $post_videos = [];
         
         foreach($data->object->attachments as $key => $value){
             
+            // download max image resolution of all attached images
             if ($value -> type == 'photo'){
 
                 if ($value -> photo -> photo_2560) {
@@ -50,39 +54,51 @@ switch ($data -> type) {
                     $post_images[] = $value -> photo -> photo_75;
                 }
             }
+
+            // set url for all attached videos
+            if ($value -> type == 'video'){
+                $owner_id = $value -> video -> owner_id;
+                $video_id = $value -> video -> id;
+                $post_videos[] = 'https://vk.com/video'.$owner_id._.$video_id;
+            }
         }
         $first_enter = strpos($post_text, PHP_EOL);
+
+        // set the title of page
         $post_title = substr($post_text, 0, $first_enter);
+
         $post_text = substr($post_text, $first_enter);
         $post_text = trim($post_text);
         
+        $images_html = [];
+        $videos_html = [];
 
-
+        // create html code for all images
         foreach ($post_images as $key => $value) {
 
+            $att_id = media_sideload_image($value, 0, null, 'id');
 
-                $att_id = media_sideload_image($value, 0, null, 'id');
+            $thumbnail_url  = wp_get_attachment_image($att_id, 'medium', $icon = false, $attr = '' );
 
-                $thumbnail_url  = wp_get_attachment_image($att_id, 'medium', $icon = false, $attr = '' );
+            $full_url = wp_get_attachment_url($att_id);
 
-                $full_url = wp_get_attachment_url($att_id);
+            $images_html[] = '<div class="vk-images">'.'<a href="'.$full_url.'">'.$thumbnail_url.'</a>'.'</div>';
+        }
 
-                // html code of a page after title
+        // create html code for all videos
+        foreach ($post_videos as $key => $value){
 
-                // show post text and start new line
-                $post_text = $post_text . PHP_EOL . 
-                    '<div class="vk-images">'.
-                    // add link to full_size image
-                    '<a href="'.$full_url.'">'.
-                    // show medium size image on page
-                    $thumbnail_url.
-                    '</a>'.
-                    '</div>';
-                
-                
+            $videos_html[] = '<div class="vk-videos">'.'<a href="'.$value.'">'.$post_title.'</a>'.'</div>';
+        }
 
-         }
+        // convert array to string
+        $images_html = implode($images_html);
+        $videos_html = implode($videos_html);
 
+        // create html code of all page via concatenating all values
+        $post_text = $post_text . PHP_EOL . $images_html . $videos_html;
+
+        // set data of new post
         if ($post_title) {
 
             $post_data = array(
@@ -91,13 +107,13 @@ switch ($data -> type) {
                 'post_status' => 'publish',
                 'post_category' => array(10)
             );
-
+        
+        // publish new post
         $post_id = wp_insert_post($post_data);
  
         set_post_thumbnail($post_id, $thumbnail_url);
 
     }
-
     break;
 }
 
